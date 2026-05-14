@@ -297,6 +297,10 @@ def teacher_login():
         flash('Invalid credentials.', 'error')
     return render_template('teacher_login.html')
 
+@app.route("/ping")
+def ping():
+    return "OK", 200
+
 @app.route('/teacher/logout')
 def teacher_logout():
     session.clear()
