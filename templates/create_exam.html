@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if exam else 'Create' }} Exam — ExamForge{% endblock %}
+{% block head %}
+<style>
+  .builder-layout { display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 60px); }
+  .builder-sidebar {
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:1.5rem; position:sticky; top:0; height:calc(100vh - 60px);
+    overflow-y:auto; display:flex; flex-direction:column; gap:1.5rem;
+  }
+  .builder-sidebar h3 { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:0.75rem; }
+  .builder-main { padding:2rem; overflow-y:auto; }
+  .section-header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border);
+  }
+  .section-header h2 { font-size:1.1rem; display:flex; align-items:center; gap:0.5rem; }
+  .toggle-switch { position:relative; width:44px; height:24px; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-slider {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    background:var(--border); border-radius:24px; cursor:pointer; transition:0.3s;
+  }
+  .toggle-slider:before {
+    content:''; position:absolute; width:18px; height:18px;
+    left:3px; top:3px; background:#fff; border-radius:50%; transition:0.3s;
+  }
+  input:checked + .toggle-slider { background:var(--accent); }
+  input:checked + .toggle-slider:before { transform:translateX(20px); }
+  .q-card {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; padding:1.2rem; margin-bottom:1rem; position:relative;
+  }
+  .q-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem; }
+  .q-number { font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted); }
+  .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-top:0.6rem; }
+  .option-row { display:flex; align-items:center; gap:0.5rem; }
+  .option-radio { width:18px; height:18px; accent-color:var(--accent); flex-shrink:0; }
+  .option-label { font-size:0.75rem; font-family:var(--font-mono); color:var(--accent); font-weight:700; flex-shrink:0; }
+  .add-q-btn {
+    width:100%; padding:0.75rem; border:2px dashed var(--border);
+    background:transparent; color:var(--text-muted); border-radius:10px;
+    cursor:pointer; font-family:var(--font-sans); font-size:0.875rem;
+    transition:all 0.2s;
+  }
+  .add-q-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .key-display {
+    background:#6c63ff18; border:1px solid #6c63ff40; border-radius:10px;
+    padding:1rem; text-align:center;
+  }
+  .key-display .key-val {
+    font-family:var(--font-mono); font-size:1.8rem; font-weight:700;
+    color:var(--accent); letter-spacing:0.2em;
+  }
+  .key-display small { font-size:0.75rem; color:var(--text-muted); }
+  .save-bar {
+    position:sticky; bottom:0; background:var(--surface);
+    border-top:1px solid var(--border); padding:1rem 2rem;
+    display:flex; gap:1rem; align-items:center;
+  }
+  .section-disabled { opacity:0.4; pointer-events:none; }
+  textarea.code-area { font-family:var(--font-mono); font-size:0.85rem; min-height:120px; }
+  .marks-input { width:80px !important; }
+</style>
+{% endblock %}
+{% block navbar %}{{ super() }}{% endblock %}
+{% block content %}
+<div class="builder-layout">
+  <!-- Sidebar -->
+  <div class="builder-sidebar">
+    <div>
+      <h3>Exam Settings</h3>
+      <div class="form-group">
+        <label>Exam Title</label>
+        <input type="text" id="examTitle" placeholder="e.g. Python Basics Test" value="{{ exam.title if exam else '' }}">
+      </div>
+    </div>
+
+    <div>
+      <h3>Time Settings</h3>
+      <div class="form-group">
+        <label>Total Time (minutes)</label>
+        <input type="number" id="totalTime" value="{{ exam.total_time_minutes if exam else 60 }}" min="5" max="360">
+      </div>
+      <div class="form-group">
+        <label>MCQ Section Time (min)</label>
+        <input type="number" id="mcqTime" value="{{ exam.mcq_time_minutes if exam else 30 }}" min="1" max="300">
+      </div>
+      <div class="form-group">
+        <label>Coding Section Time (min)</label>
+        <input type="number" id="codingTime" value="{{ exam.coding_time_minutes if exam else 30 }}" min="1" max="300">
+      </div>
+    </div>
+
+    <div>
+      <h3>Student Access</h3>
+      <div class="form-group">
+        <label>Allowed Emails (optional)</label>
+        <textarea id="allowedEmails" rows="3" placeholder="student1@email.com, student2@email.com">{{ exam.allowed_emails if exam else '' }}</textarea>
+        <small style="color:var(--text-muted); font-size:0.72rem; display:block; margin-top:0.3rem;">Leave empty to allow anyone with the security key. Separate multiple emails with commas.</small>
+      </div>
+    </div>
+
+    <div>
+      <h3>Sections</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+        <span style="font-size:0.875rem;">MCQ Section</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="mcqEnabled" {{ 'checked' if not exam or exam.mcq_enabled }} onchange="toggleSection('mcq')">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.875rem;">Coding Section</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="codingEnabled" {{ 'checked' if not exam or exam.coding_enabled }} onchange="toggleSection('coding')">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    {% if exam %}
+    <div class="key-display">
+      <small>Security Key</small>
+      <div class="key-val">{{ exam.security_key }}</div>
+      <small>Share this with students</small>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:auto;">
+      <div id="saveStatus" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; text-align:center;"></div>
+      <button class="btn btn-primary" onclick="saveExam()" style="width:100%; justify-content:center;">
+        {{ '💾 Update Exam' if exam else '🚀 Create Exam' }}
+      </button>
+      {% if exam %}
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="width:100%; justify-content:center; margin-top:0.5rem;">← Dashboard</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Main Builder -->
+  <div class="builder-main">
+    <!-- MCQ Section -->
+    <div id="mcq-section">
+      <div class="section-header">
+        <h2>📝 MCQ Section</h2>
+        <span id="mcq-marks-total" style="font-size:0.8rem; color:var(--text-muted);"></span>
+      </div>
+      <div id="mcq-questions"></div>
+      <button class="add-q-btn" onclick="addQuestion('mcq')">+ Add MCQ Question</button>
+    </div>
+
+    <div style="height:2.5rem;"></div>
+
+    <!-- Coding Section -->
+    <div id="coding-section">
+      <div class="section-header">
+        <h2>💻 Coding Section</h2>
+        <span id="coding-marks-total" style="font-size:0.8rem; color:var(--text-muted);"></span>
+      </div>
+      <div id="coding-questions"></div>
+      <button class="add-q-btn" onclick="addQuestion('coding')">+ Add Coding Question</button>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" style="display:none; position:fixed; inset:0; background:#00000080; z-index:999; display:none; align-items:center; justify-content:center;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2.5rem; text-align:center; max-width:380px;">
+    <div style="font-size:3rem; margin-bottom:1rem;">✅</div>
+    <h2 style="margin-bottom:0.5rem;">Exam Created!</h2>
+    <p style="color:var(--text-muted); margin-bottom:1.5rem;">Share this security key with your students:</p>
+    <div class="key-display" style="margin-bottom:1.5rem;">
+      <div class="key-val" id="modal-key"></div>
+    </div>
+    <div style="display:flex; gap:0.75rem; justify-content:center;">
+      <button onclick="copyModalKey()" class="btn btn-secondary">Copy Key</button>
+      <a href="/dashboard" class="btn btn-primary">Go to Dashboard →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const EXAM_ID = {{ exam.id if exam else 'null' }};
+let mcqQuestions = [];
+let codingQuestions = [];
+
+{% if exam and mcq_qs %}
+mcqQuestions = [
+  {% for q in mcq_qs %}
+  { id: {{ q.id }}, text: {{ q.text|tojson }}, marks: {{ q.marks }},
+    option_a: {{ q.option_a|tojson }}, option_b: {{ q.option_b|tojson }},
+    option_c: {{ q.option_c|tojson }}, option_d: {{ q.option_d|tojson }},
+    correct: {{ q.correct_option|tojson }} },
+  {% endfor %}
+];
+{% endif %}
+{% if exam and coding_qs %}
+codingQuestions = [
+  {% for q in coding_qs %}
+  { id: {{ q.id }}, text: {{ q.text|tojson }}, marks: {{ q.marks }},
+    expected_output: {{ (q.expected_output or '')|tojson }},
+    language_hint: {{ (q.language_hint or 'python')|tojson }},
+    starter_code: {{ (q.starter_code or '')|tojson }},
+    test_cases: {{ (q.test_cases or '')|tojson }} },
+  {% endfor %}
+];
+{% endif %}
+
+function toggleSection(section) {
+  const enabled = document.getElementById(section + 'Enabled').checked;
+  document.getElementById(section + '-section').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById(section + '-section').style.pointerEvents = enabled ? '' : 'none';
+}
+
+function updateMarks(section) {
+  const qs = section === 'mcq' ? mcqQuestions : codingQuestions;
+  const total = qs.reduce((s, q) => s + (parseInt(document.getElementById(section+'-marks-'+q._uid)||{value:q.marks})?.value||q.marks)*1, 0);
+  document.getElementById(section + '-marks-total').textContent = 'Total marks: ' + getMarksForSection(section);
+}
+
+function getMarksForSection(section) {
+  const qs = document.querySelectorAll(`#${section}-questions .q-card`);
+  let total = 0;
+  qs.forEach(card => {
+    const mi = card.querySelector('.marks-input');
+    total += parseInt(mi?.value || 1);
+  });
+  return total;
+}
+
+let _uid = 0;
+function addQuestion(section, data = {}) {
+  const uid = _uid++;
+  data._uid = uid;
+  if (section === 'mcq') mcqQuestions.push(data);
+  else codingQuestions.push(data);
+  renderQuestion(section, data, uid);
+}
+
+function renderQuestion(section, data, uid) {
+  const container = document.getElementById(section + '-questions');
+  const idx = container.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'q-card';
+  div.dataset.uid = uid;
+
+  if (section === 'mcq') {
+    div.innerHTML = `
+      <div class="q-card-header">
+        <span class="q-number">Q${idx}</span>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <label style="margin:0; font-size:0.75rem;">Marks:</label>
+          <input type="number" class="marks-input" value="${data.marks||1}" min="1" onchange="updateMarks('mcq')">
+          <button onclick="removeQuestion('mcq', ${uid})" style="background:none; border:none; color:var(--accent2); cursor:pointer; font-size:1.1rem;">✕</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0.6rem;">
+        <textarea rows="2" class="q-text" placeholder="Enter question text..." style="resize:vertical;">${data.text||''}</textarea>
+      </div>
+      <div class="options-grid">
+        <div class="option-row">
+          <input type="radio" class="option-radio" name="correct-${uid}" value="a" ${data.correct==='a'?'checked':''}>
+          <span class="option-label">A</span>
+          <input type="text" class="opt-a" placeholder="Option A" value="${data.option_a||''}">
+        </div>
+        <div class="option-row">
+          <input type="radio" class="option-radio" name="correct-${uid}" value="b" ${data.correct==='b'?'checked':''}>
+          <span class="option-label">B</span>
+          <input type="text" class="opt-b" placeholder="Option B" value="${data.option_b||''}">
+        </div>
+        <div class="option-row">
+          <input type="radio" class="option-radio" name="correct-${uid}" value="c" ${data.correct==='c'?'checked':''}>
+          <span class="option-label">C</span>
+          <input type="text" class="opt-c" placeholder="Option C" value="${data.option_c||''}">
+        </div>
+        <div class="option-row">
+          <input type="radio" class="option-radio" name="correct-${uid}" value="d" ${data.correct==='d'?'checked':''}>
+          <span class="option-label">D</span>
+          <input type="text" class="opt-d" placeholder="Option D" value="${data.option_d||''}">
+        </div>
+      </div>
+    `;
+  } else {
+    div.innerHTML = `
+      <div class="q-card-header">
+        <span class="q-number">Coding Q${idx}</span>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <label style="margin:0; font-size:0.75rem;">Marks:</label>
+          <input type="number" class="marks-input" value="${data.marks||10}" min="1" onchange="updateMarks('coding')">
+          <button onclick="removeQuestion('coding', ${uid})" style="background:none; border:none; color:var(--accent2); cursor:pointer; font-size:1.1rem;">✕</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <textarea rows="3" class="q-text" placeholder="Describe the coding problem...">${data.text||''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Language Hint</label>
+        <select class="lang-hint">
+          <option value="python" ${data.language_hint==='python'?'selected':''}>Python</option>
+          <option value="java" ${data.language_hint==='java'?'selected':''}>Java</option>
+          <option value="cpp" ${data.language_hint==='cpp'?'selected':''}>C++</option>
+          <option value="c" ${data.language_hint==='c'?'selected':''}>C</option>
+          <option value="javascript" ${data.language_hint==='javascript'?'selected':''}>JavaScript</option>
+          <option value="any" ${data.language_hint==='any'?'selected':''}>Any Language</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Expected Output (optional, for reference)</label>
+        <textarea class="code-area expected-out" rows="3" placeholder="Expected output or test cases...">${data.expected_output||''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Starter Code (optional)</label>
+        <textarea class="code-area starter-code" rows="4" placeholder="// Initial code template for students...">${data.starter_code||''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Test Cases (JSON format)</label>
+        <textarea class="code-area test-cases" rows="8" placeholder='[
+  {"input": "5", "output": "25"},
+  {"input": "10", "output": "100"}
+]
+
+OR for function-based:
+[
+  {"args": [5], "output": "25"},
+  {"args": [10], "output": "100"}
+]'></textarea>
+        <small style="color:var(--text-muted); font-size:0.72rem; display:block; margin-top:0.3rem;">
+          STDIO mode: [{"input": "5", "output": "25"}] | 
+          Function mode: [{"args": [5], "output": "25"}]
+        </small>
+      </div>
+    `;
+  }
+  container.appendChild(div);
+  updateMarks(section);
+}
+
+function removeQuestion(section, uid) {
+  const container = document.getElementById(section + '-questions');
+  const card = container.querySelector(`[data-uid="${uid}"]`);
+  if (card) card.remove();
+  if (section === 'mcq') mcqQuestions = mcqQuestions.filter(q => q._uid !== uid);
+  else codingQuestions = codingQuestions.filter(q => q._uid !== uid);
+  updateMarks(section);
+}
+
+function collectQuestions(section) {
+  const cards = document.querySelectorAll(`#${section}-questions .q-card`);
+  const result = [];
+  cards.forEach(card => {
+    if (section === 'mcq') {
+      const correct = card.querySelector('.option-radio:checked');
+      result.push({
+        text: card.querySelector('.q-text').value,
+        marks: parseInt(card.querySelector('.marks-input').value) || 1,
+        option_a: card.querySelector('.opt-a').value,
+        option_b: card.querySelector('.opt-b').value,
+        option_c: card.querySelector('.opt-c').value,
+        option_d: card.querySelector('.opt-d').value,
+        correct: correct ? correct.value : 'a',
+      });
+    } else {
+      result.push({
+        text: card.querySelector('.q-text').value,
+        marks: parseInt(card.querySelector('.marks-input').value) || 10,
+        expected_output: card.querySelector('.expected-out').value,
+        language_hint: card.querySelector('.lang-hint').value,
+        starter_code: card.querySelector('.starter-code').value,
+        test_cases: card.querySelector('.test-cases').value,
+      });
+    }
+  });
+  return result;
+}
+
+async function saveExam() {
+  const title = document.getElementById('examTitle').value.trim();
+  if (!title) { alert('Please enter an exam title.'); return; }
+  const mcqEnabled = document.getElementById('mcqEnabled').checked;
+  const codingEnabled = document.getElementById('codingEnabled').checked;
+  if (!mcqEnabled && !codingEnabled) { alert('At least one section must be enabled.'); return; }
+
+  const payload = {
+    title,
+    total_time: document.getElementById('totalTime').value,
+    mcq_time: document.getElementById('mcqTime').value,
+    coding_time: document.getElementById('codingTime').value,
+    mcq_enabled: mcqEnabled,
+    coding_enabled: codingEnabled,
+    allowed_emails: document.getElementById('allowedEmails').value.trim(),
+    mcq_questions: mcqEnabled ? collectQuestions('mcq') : [],
+    coding_questions: codingEnabled ? collectQuestions('coding') : [],
+  };
+
+  document.getElementById('saveStatus').textContent = 'Saving...';
+  const url = EXAM_ID ? `/exam/${EXAM_ID}/edit` : '/exam/create';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (data.success) {
+    if (!EXAM_ID) {
+      document.getElementById('modal-key').textContent = data.key;
+      document.getElementById('successModal').style.display = 'flex';
+    } else {
+      document.getElementById('saveStatus').textContent = '✓ Saved';
+      setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
+    }
+  }
+}
+
+function copyModalKey() {
+  const key = document.getElementById('modal-key').textContent;
+  navigator.clipboard.writeText(key);
+  alert('Key copied!');
+}
+
+// Render existing questions on page load
+window.onload = () => {
+  mcqQuestions.forEach(q => renderQuestion('mcq', q, _uid++));
+  codingQuestions.forEach(q => renderQuestion('coding', q, _uid++));
+  toggleSection('mcq');
+  toggleSection('coding');
+};
+</script>
+{% endblock %}

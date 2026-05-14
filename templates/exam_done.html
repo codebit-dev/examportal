@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Exam Submitted — ExamForge{% endblock %}
+{% block head %}
+<style>
+  .done-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
+  .done-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:3rem; max-width:480px; width:100%; text-align:center; }
+  .done-icon { font-size:4rem; margin-bottom:1rem; }
+  .done-card h2 { margin-bottom:0.75rem; }
+  .done-card p { color:var(--text-muted); line-height:1.7; font-size:0.9rem; }
+  .info-row { background:var(--surface2); border-radius:10px; padding:1rem; margin:1.5rem 0; display:flex; align-items:center; gap:0.75rem; text-align:left; }
+  .info-row .icon { font-size:1.5rem; }
+  .exit-btn {
+    margin-top: 1.5rem;
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    justify-content: center;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="done-wrap">
+  <div class="done-card">
+    <div class="done-icon">🎉</div>
+    <h2>Exam Submitted Successfully!</h2>
+    <p>Your responses have been recorded and graded. Your results have been sent to your email address.</p>
+    
+    <div class="info-row">
+      <span class="icon">📧</span>
+      <div>
+        <div style="font-size:0.85rem; font-weight:600;">Results Sent to Email</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Check your inbox for detailed score breakdown</div>
+      </div>
+    </div>
+    
+    <div class="info-row">
+      <span class="icon">✓</span>
+      <div>
+        <div style="font-size:0.85rem; font-weight:600;">Auto-Grading Complete</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">All sections have been graded automatically</div>
+      </div>
+    </div>
+    
+    <button class="btn btn-primary exit-btn" onclick="exitExam()">
+      🚪 Exit Exam
+    </button>
+  </div>
+</div>
+
+<script>
+// Keep session alive until user exits
+setInterval(() => {
+  fetch('/exam/heartbeat', { method: 'POST' }).catch(() => {});
+}, 30000); // Every 30 seconds
+
+function exitExam() {
+  // Redirect to home
+  window.location.href = '{{ url_for("index") }}';
+}
+</script>
+{% endblock %}

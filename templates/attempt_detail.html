@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Review: {{ attempt.candidate_name }} — ExamForge{% endblock %}
+{% block head %}
+<style>
+  .detail-header { padding:1.5rem 2rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; }
+  .detail-header h1 { font-size:1.3rem; }
+  .score-summary { display:flex; gap:1rem; padding:1.5rem 2rem; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .score-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem 1.5rem; text-align:center; }
+  .score-box .val { font-family:var(--font-mono); font-size:1.8rem; font-weight:700; color:var(--accent); }
+  .score-box .lbl { font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; }
+  .sections { padding:1.5rem 2rem; display:grid; gap:2rem; }
+  .section-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .section-block-header { padding:1rem 1.5rem; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .section-block-header h2 { font-size:1rem; }
+  .answer-row { padding:1.2rem 1.5rem; border-bottom:1px solid var(--border); }
+  .answer-row:last-child { border-bottom:none; }
+  .q-text-sm { font-size:0.9rem; line-height:1.5; margin-bottom:0.75rem; font-weight:500; }
+  .mcq-answer-row { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; }
+  .answer-chip { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.75rem; border-radius:6px; font-size:0.8rem; font-family:var(--font-mono); }
+  .chip-correct { background:#003322; color:var(--green); border:1px solid #00e5a040; }
+  .chip-wrong { background:#2a0a0a; color:var(--accent2); border:1px solid #ff658440; }
+  .chip-neutral { background:var(--surface2); color:var(--text-muted); border:1px solid var(--border); }
+  .code-block { background:#080810; border:1px solid var(--border); border-radius:8px; padding:1rem; font-family:var(--font-mono); font-size:0.82rem; line-height:1.6; white-space:pre-wrap; overflow-x:auto; max-height:320px; overflow-y:auto; }
+  .mark-input-row { display:flex; align-items:center; gap:0.75rem; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border); }
+  .mark-input-row label { font-size:0.8rem; color:var(--text-muted); }
+  .mark-input { width:80px !important; font-family:var(--font-mono); }
+  #saveBtn { position:fixed; bottom:1.5rem; right:1.5rem; }
+  #savedMsg { position:fixed; bottom:1.5rem; right:8rem; font-size:0.85rem; color:var(--green); opacity:0; transition:opacity 0.3s; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="detail-header">
+  <div>
+    <h1>{{ attempt.candidate_name }}</h1>
+    <div style="color:var(--text-muted); font-size:0.85rem; margin-top:0.2rem;">
+      {{ attempt.candidate_email }} · {{ exam.title }}
+      {% if attempt.submitted_at %} · Submitted {{ attempt.submitted_at.strftime('%b %d %Y, %H:%M') }}{% endif %}
+    </div>
+  </div>
+  <a href="{{ url_for('exam_results', exam_id=exam.id) }}" class="btn btn-secondary btn-sm">← Back to Results</a>
+</div>
+
+<div class="score-summary">
+  <div class="score-box">
+    <div class="val">{{ attempt.mcq_score }}</div>
+    <div class="lbl">MCQ Score</div>
+  </div>
+  <div class="score-box">
+    <div class="val" id="coding-score-display">{{ attempt.coding_score }}</div>
+    <div class="lbl">Coding Score</div>
+  </div>
+  <div class="score-box">
+    <div class="val" id="total-score-display">{{ attempt.total_score }}</div>
+    <div class="lbl">Total Score</div>
+  </div>
+  <div class="score-box">
+    <div class="val">{{ attempt.max_score }}</div>
+    <div class="lbl">Max Score</div>
+  </div>
+</div>
+
+<div class="sections">
+  <!-- MCQ Section -->
+  {% set mcq_answers = answers | selectattr('question.section', 'equalto', 'mcq') | list %}
+  {% if mcq_answers %}
+  <div class="section-block">
+    <div class="section-block-header">
+      <h2>📝 MCQ Answers</h2>
+      <span style="font-size:0.8rem; color:var(--text-muted);">Auto-graded · {{ attempt.mcq_score }} pts</span>
+    </div>
+    {% for ans in mcq_answers %}
+    <div class="answer-row">
+      <div class="q-text-sm">Q{{ loop.index }}. {{ ans.question.text }}</div>
+      <div class="mcq-answer-row">
+        <span class="answer-chip {{ 'chip-correct' if ans.is_correct else 'chip-wrong' if ans.answer_text else 'chip-neutral' }}">
+          Student: {{ ans.answer_text|upper if ans.answer_text else 'No answer' }}
+        </span>
+        <span class="answer-chip chip-correct">Correct: {{ ans.question.correct_option|upper }}</span>
+        <span style="font-size:0.78rem; color:var(--text-muted);">
+          {{ ans.marks_awarded }}/{{ ans.question.marks }} marks
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Coding Section -->
+  {% set coding_answers = answers | selectattr('question.section', 'equalto', 'coding') | list %}
+  {% if coding_answers %}
+  <div class="section-block">
+    <div class="section-block-header">
+      <h2>💻 Coding Answers</h2>
+      <span style="font-size:0.8rem; color:var(--text-muted);">Manual grading required</span>
+    </div>
+    {% for ans in coding_answers %}
+    <div class="answer-row">
+      <div class="q-text-sm">Problem {{ loop.index }}. {{ ans.question.text }}</div>
+      {% if ans.question.expected_output %}
+      <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Expected: {{ ans.question.expected_output }}</div>
+      {% endif %}
+      <div class="code-block">{{ ans.answer_text if ans.answer_text else '(No code submitted)' }}</div>
+      <div class="mark-input-row">
+        <label>Award marks (max {{ ans.question.marks }}):</label>
+        <input type="number" class="mark-input coding-score-input" data-answer-id="{{ ans.id }}" data-max="{{ ans.question.marks }}"
+               value="{{ ans.marks_awarded }}" min="0" max="{{ ans.question.marks }}">
+        <span style="font-size:0.78rem; color:var(--text-muted);">/ {{ ans.question.marks }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if coding_answers %}
+<div id="savedMsg">✓ Saved!</div>
+<button class="btn btn-primary" id="saveBtn" onclick="saveScores()">💾 Save Coding Scores</button>
+{% endif %}
+
+<script>
+async function saveScores() {
+  const inputs = document.querySelectorAll('.coding-score-input');
+  const scores = {};
+  let valid = true;
+  inputs.forEach(inp => {
+    const val = parseInt(inp.value);
+    const max = parseInt(inp.dataset.max);
+    if (isNaN(val) || val < 0 || val > max) { valid = false; return; }
+    scores[inp.dataset.answerId] = val;
+  });
+  if (!valid) { alert('Please enter valid marks within the allowed range.'); return; }
+
+  const res = await fetch('/attempt/{{ attempt.id }}/score', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ scores })
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('coding-score-display').textContent = data.total - {{ attempt.mcq_score }};
+    document.getElementById('total-score-display').textContent = data.total;
+    const msg = document.getElementById('savedMsg');
+    msg.style.opacity = '1';
+    setTimeout(() => msg.style.opacity = '0', 2000);
+  }
+}
+</script>
+{% endblock %}

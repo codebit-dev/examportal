@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Exam Instructions — {{ exam.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block head %}
+<style>
+  body { background: var(--bg); }
+  .instructions-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .instructions-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem;
+    max-width: 700px;
+    width: 100%;
+  }
+  .instructions-card h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+  }
+  .exam-meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-info {
+    background: #0f1419;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-info h3 {
+    font-size: 1rem;
+    margin: 0 0 1rem;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-info ul {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+  .section-info li {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin-bottom: 0.3rem;
+  }
+  .section-info li strong {
+    color: var(--text);
+  }
+  .warning-box {
+    background: #2a1a0a;
+    border-left: 3px solid #ffaa44;
+    padding: 1rem 1.5rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1.5rem 0;
+  }
+  .warning-box p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #ffcc88;
+    line-height: 1.6;
+  }
+  .start-btn {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    justify-content: center;
+  }
+  .student-info {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .student-info .info-item {
+    flex: 1;
+    background: var(--surface2);
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+  }
+  .student-info .label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .student-info .value {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="instructions-wrap">
+  <div class="instructions-card">
+    <h1>{{ exam.title }}</h1>
+    <div class="exam-meta">Please read all instructions carefully before starting</div>
+
+    <div class="student-info">
+      <div class="info-item">
+        <div class="label">Candidate</div>
+        <div class="value">{{ attempt.candidate_name }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Email</div>
+        <div class="value">{{ attempt.candidate_email }}</div>
+      </div>
+    </div>
+
+    {% if exam.mcq_enabled and exam.coding_enabled %}
+    <!-- Both Sections -->
+    <div class="section-info">
+      <h3>📝 Section 1: Multiple Choice Questions</h3>
+      <ul>
+        <li><strong>Duration:</strong> {{ exam.mcq_time_minutes }} minutes</li>
+        <li><strong>Questions:</strong> {{ exam.questions|selectattr("section", "equalto", "mcq")|list|length }} MCQ questions</li>
+        <li>Each question has 4 options with only one correct answer</li>
+        <li>You can navigate between questions and change answers</li>
+        <li><strong>Auto-submit:</strong> Section will auto-submit when time expires</li>
+        <li>⚠️ You <strong>cannot return</strong> to MCQ after submission</li>
+      </ul>
+    </div>
+
+    <div class="section-info">
+      <h3>💻 Section 2: Coding Questions</h3>
+      <ul>
+        <li><strong>Duration:</strong> {{ exam.coding_time_minutes }} minutes</li>
+        <li><strong>Questions:</strong> {{ exam.questions|selectattr("section", "equalto", "coding")|list|length }} coding problem(s)</li>
+        <li>Write code solutions in the provided editor</li>
+        <li>You can test your code before final submission</li>
+        <li><strong>Auto-grading:</strong> Solutions are graded automatically based on test cases</li>
+        <li><strong>Auto-submit:</strong> Section will auto-submit when time expires</li>
+      </ul>
+    </div>
+
+    {% elif exam.mcq_enabled %}
+    <!-- MCQ Only -->
+    <div class="section-info">
+      <h3>📝 Multiple Choice Questions</h3>
+      <ul>
+        <li><strong>Duration:</strong> {{ exam.mcq_time_minutes }} minutes</li>
+        <li><strong>Questions:</strong> {{ exam.questions|selectattr("section", "equalto", "mcq")|list|length }} MCQ questions</li>
+        <li>Each question has 4 options with only one correct answer</li>
+        <li>You can navigate between questions and change answers</li>
+        <li><strong>Auto-submit:</strong> Exam will auto-submit when time expires</li>
+        <li>Results will be sent to your email after submission</li>
+      </ul>
+    </div>
+
+    {% elif exam.coding_enabled %}
+    <!-- Coding Only -->
+    <div class="section-info">
+      <h3>💻 Coding Questions</h3>
+      <ul>
+        <li><strong>Duration:</strong> {{ exam.coding_time_minutes }} minutes</li>
+        <li><strong>Questions:</strong> {{ exam.questions|selectattr("section", "equalto", "coding")|list|length }} coding problem(s)</li>
+        <li>Write code solutions in the provided editor</li>
+        <li>You can test your code before final submission</li>
+        <li><strong>Auto-grading:</strong> Solutions are graded automatically based on test cases</li>
+        <li><strong>Auto-submit:</strong> Exam will auto-submit when time expires</li>
+        <li>Results will be sent to your email after submission</li>
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="warning-box">
+      <p>⚠️ <strong>Important:</strong> Do not switch tabs or windows during the exam. Your session will remain active throughout the exam. Once you start, the timer cannot be paused.</p>
+    </div>
+
+    <button class="btn btn-primary start-btn" onclick="startExam()">
+      🚀 Start Exam
+    </button>
+  </div>
+</div>
+
+<script>
+function startExam() {
+  // Get target URL
+  {% if exam.mcq_enabled %}
+  const targetUrl = '{{ url_for("exam_mcq") }}';
+  {% else %}
+  const targetUrl = '{{ url_for("exam_coding") }}';
+  {% endif %}
+
+  // Keep session alive
+  fetch('/exam/heartbeat', { method: 'POST' }).catch(() => {});
+
+  // Navigate to exam
+  window.location.href = targetUrl;
+}
+</script>
+{% endblock %}

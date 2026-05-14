@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Results: {{ exam.title }} — ExamForge{% endblock %}
+{% block head %}
+<style>
+  .results-header { padding:2rem 2rem 1rem; display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+  .results-header h1 { font-size:1.4rem; }
+  .results-header p { color:var(--text-muted); font-size:0.85rem; margin-top:0.2rem; }
+  .stats-bar { display:flex; gap:1rem; padding:0 2rem 1.5rem; flex-wrap:wrap; }
+  .stat-pill { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.75rem 1.2rem; }
+  .stat-pill .val { font-family:var(--font-mono); font-size:1.4rem; font-weight:700; color:var(--accent); }
+  .stat-pill .lbl { font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .table-wrap { padding:0 2rem 2rem; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); padding:0.6rem 1rem; border-bottom:1px solid var(--border); }
+  td { padding:0.85rem 1rem; border-bottom:1px solid var(--border); font-size:0.875rem; }
+  tr:hover td { background:#ffffff06; }
+  .score-cell { font-family:var(--font-mono); font-weight:700; }
+  .score-high { color:var(--green); }
+  .score-mid { color:#ffaa44; }
+  .score-low { color:var(--accent2); }
+  .status-badge { display:inline-block; padding:0.2rem 0.6rem; border-radius:20px; font-size:0.72rem; font-weight:600; }
+  .status-done { background:#003322; color:var(--green); border:1px solid #00e5a040; }
+  .status-pending { background:#2a1a00; color:#ffaa44; border:1px solid #ffaa4440; }
+  .mini-bar { height:4px; background:var(--border); border-radius:2px; margin-top:0.35rem; overflow:hidden; width:80px; }
+  .mini-fill { height:100%; border-radius:2px; background:var(--accent); }
+  .empty { text-align:center; padding:3rem; color:var(--text-muted); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="results-header">
+  <div>
+    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <h1>{{ exam.title }}</h1>
+      <span class="tag {{ 'tag-active' if exam.is_active else 'tag-inactive' }}">{{ 'ACTIVE' if exam.is_active else 'PAUSED' }}</span>
+    </div>
+    <p>Security Key: <strong style="font-family:var(--font-mono); color:var(--accent);">{{ exam.security_key }}</strong> · Max Score: {{ max_score }}</p>
+  </div>
+  <div style="display:flex; gap:0.75rem;">
+    <a href="{{ url_for('edit_exam', exam_id=exam.id) }}" class="btn btn-secondary btn-sm">Edit Exam</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">← Dashboard</a>
+  </div>
+</div>
+
+{% if attempts %}
+{% set submitted = attempts | selectattr('submitted_at') | list %}
+{% set avg = (submitted | sum(attribute='total_score') / submitted|length)|round(1) if submitted else 0 %}
+<div class="stats-bar">
+  <div class="stat-pill"><div class="val">{{ attempts|length }}</div><div class="lbl">Total Attempts</div></div>
+  <div class="stat-pill"><div class="val">{{ submitted|length }}</div><div class="lbl">Submitted</div></div>
+  <div class="stat-pill"><div class="val">{{ avg }}</div><div class="lbl">Avg Score</div></div>
+  <div class="stat-pill"><div class="val">{{ max_score }}</div><div class="lbl">Max Score</div></div>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+  {% if attempts %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Candidate</th>
+        <th>Email</th>
+        <th>Started</th>
+        <th>Status</th>
+        <th>MCQ</th>
+        <th>Coding</th>
+        <th>Total</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for attempt in attempts %}
+      {% set pct = (attempt.total_score / max_score * 100)|int if max_score > 0 else 0 %}
+      <tr>
+        <td style="color:var(--text-muted); font-family:var(--font-mono);">{{ loop.index }}</td>
+        <td><strong>{{ attempt.candidate_name }}</strong></td>
+        <td style="color:var(--text-muted); font-size:0.82rem;">{{ attempt.candidate_email }}</td>
+        <td style="color:var(--text-muted); font-size:0.8rem;">{{ attempt.started_at.strftime('%b %d, %H:%M') }}</td>
+        <td>
+          {% if attempt.submitted_at %}
+          <span class="status-badge status-done">Submitted</span>
+          {% else %}
+          <span class="status-badge status-pending">In Progress</span>
+          {% endif %}
+        </td>
+        <td class="score-cell">{{ attempt.mcq_score }}</td>
+        <td class="score-cell">{{ attempt.coding_score }}</td>
+        <td>
+          <div class="score-cell {{ 'score-high' if pct >= 70 else ('score-mid' if pct >= 40 else 'score-low') }}">
+            {{ attempt.total_score }}/{{ max_score }}
+          </div>
+          <div class="mini-bar"><div class="mini-fill" style="width:{{ pct }}%"></div></div>
+        </td>
+        <td>
+          <a href="{{ url_for('attempt_detail', attempt_id=attempt.id) }}" class="btn btn-secondary btn-sm">Review</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <div style="font-size:2.5rem; margin-bottom:0.75rem;">📭</div>
+    <h3>No attempts yet</h3>
+    <p style="margin-top:0.3rem; font-size:0.85rem;">Share the security key <strong style="color:var(--accent);">{{ exam.security_key }}</strong> with students to begin</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

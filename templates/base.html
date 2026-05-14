@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}ExamForge{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a40;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --green: #00e5a0;
+    --text: #e8e8f0;
+    --text-muted: #8888aa;
+    --font-mono: 'Space Mono', monospace;
+    --font-sans: 'Sora', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-sans); min-height:100vh; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { color:var(--accent2); }
+  .nav {
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    padding:0 2rem;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    height:60px;
+  }
+  .nav-brand {
+    font-family:var(--font-mono);
+    font-size:1.1rem;
+    font-weight:700;
+    color:var(--accent);
+    letter-spacing:2px;
+  }
+  .nav-links { display:flex; gap:1.5rem; align-items:center; }
+  .nav-links a { font-size:0.85rem; color:var(--text-muted); transition:color 0.2s; }
+  .nav-links a:hover { color:var(--text); }
+  .btn {
+    display:inline-flex; align-items:center; gap:0.5rem;
+    padding:0.6rem 1.4rem; border-radius:8px;
+    font-family:var(--font-sans); font-size:0.875rem; font-weight:600;
+    border:none; cursor:pointer; transition:all 0.2s;
+  }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:#5a52e0; color:#fff; transform:translateY(-1px); }
+  .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-danger { background:#2a0a0a; color:var(--accent2); border:1px solid #ff658440; }
+  .btn-danger:hover { background:#3a1010; }
+  .btn-success { background:#003322; color:var(--green); border:1px solid #00e5a040; }
+  .btn-success:hover { background:#004433; }
+  .btn-sm { padding:0.4rem 0.9rem; font-size:0.8rem; }
+  .container { max-width:1100px; margin:0 auto; padding:2rem; }
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:1.5rem;
+  }
+  .flash-messages { padding:0 2rem; margin-top:1rem; }
+  .flash { padding:0.75rem 1rem; border-radius:8px; font-size:0.875rem; margin-bottom:0.5rem; }
+  .flash.error { background:#2a0a0a; border:1px solid #ff658440; color:var(--accent2); }
+  .flash.success { background:#003322; border:1px solid #00e5a040; color:var(--green); }
+  .tag {
+    display:inline-block; padding:0.2rem 0.7rem; border-radius:20px;
+    font-size:0.75rem; font-weight:600; font-family:var(--font-mono);
+  }
+  .tag-active { background:#003322; color:var(--green); border:1px solid #00e5a040; }
+  .tag-inactive { background:#2a1a00; color:#ffaa44; border:1px solid #ffaa4440; }
+  input, textarea, select {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:0.65rem 0.9rem;
+    font-family:var(--font-sans); font-size:0.875rem; width:100%;
+    transition:border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline:none; border-color:var(--accent);
+  }
+  label { font-size:0.8rem; color:var(--text-muted); font-weight:600; margin-bottom:0.3rem; display:block; text-transform:uppercase; letter-spacing:0.05em; }
+  .form-group { margin-bottom:1.2rem; }
+  h1 { font-size:1.8rem; font-weight:700; }
+  h2 { font-size:1.3rem; font-weight:600; }
+  h3 { font-size:1.1rem; font-weight:600; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% block navbar %}
+<nav class="nav">
+  <div class="nav-brand">⬡ EXAMFORGE</div>
+  <div class="nav-links">
+    {% if session.get('teacher_id') %}
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('create_exam') }}">New Exam</a>
+      <a href="{{ url_for('teacher_logout') }}" class="btn btn-secondary btn-sm">Logout</a>
+    {% else %}
+      <a href="{{ url_for('join_exam') }}">Take Exam</a>
+      <a href="{{ url_for('teacher_login') }}" class="btn btn-secondary btn-sm">Teacher Login</a>
+    {% endif %}
+  </div>
+</nav>
+{% endblock %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages">
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+</body>
+</html>

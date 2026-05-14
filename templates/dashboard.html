@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ExamForge{% endblock %}
+{% block content %}
+<style>
+  .dash-header { padding:2rem 2rem 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+  .dash-header h1 { font-size:1.6rem; }
+  .dash-header p { color:var(--text-muted); font-size:0.9rem; margin-top:0.2rem; }
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:1rem; padding:1.5rem 2rem; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.2rem; }
+  .stat-val { font-size:2rem; font-weight:700; font-family:var(--font-mono); color:var(--accent); }
+  .stat-label { font-size:0.78rem; color:var(--text-muted); margin-top:0.2rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .exams-grid { padding:0 2rem 2rem; display:grid; gap:1rem; }
+  .exam-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:1.5rem;
+    display:grid; grid-template-columns:1fr auto; align-items:start; gap:1rem;
+  }
+  .exam-title { font-size:1.1rem; font-weight:600; margin-bottom:0.4rem; }
+  .exam-meta { font-size:0.8rem; color:var(--text-muted); display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-top:0.5rem; }
+  .exam-meta span { display:flex; align-items:center; gap:0.3rem; }
+  .key-badge {
+    font-family:var(--font-mono); font-size:0.85rem; font-weight:700;
+    background:#6c63ff18; border:1px solid #6c63ff40; color:var(--accent);
+    padding:0.25rem 0.6rem; border-radius:6px; letter-spacing:0.1em;
+    cursor:pointer; transition:background 0.2s;
+  }
+  .key-badge:hover { background:#6c63ff30; }
+  .exam-actions { display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-start; justify-content:flex-end; }
+  .section-tags { display:flex; gap:0.4rem; margin-top:0.5rem; }
+  .stag { padding:0.15rem 0.55rem; border-radius:20px; font-size:0.7rem; font-weight:600; }
+  .stag-mcq { background:#1a1a3a; color:#8888ff; border:1px solid #4444aa40; }
+  .stag-coding { background:#1a2a1a; color:#66dd88; border:1px solid #44aa6640; }
+  .stag-off { opacity:0.4; text-decoration:line-through; }
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-muted); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+  .score-bar { height:4px; background:var(--border); border-radius:2px; margin-top:0.5rem; overflow:hidden; }
+  .score-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.5s; }
+</style>
+<div class="dash-header">
+  <div>
+    <h1>Welcome, {{ teacher.name }}</h1>
+    <p>Manage your exams and view student results</p>
+  </div>
+  <a href="{{ url_for('create_exam') }}" class="btn btn-primary">+ Create Exam</a>
+</div>
+
+{% if exam_stats %}
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-val">{{ exam_stats|length }}</div>
+    <div class="stat-label">Total Exams</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ exam_stats|selectattr('exam.is_active')|list|length }}</div>
+    <div class="stat-label">Active Exams</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ exam_stats|sum(attribute='total_attempts') }}</div>
+    <div class="stat-label">Total Attempts</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ exam_stats|sum(attribute='submitted') }}</div>
+    <div class="stat-label">Completed</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="exams-grid">
+  {% if exam_stats %}
+    {% for es in exam_stats %}
+    <div class="exam-card" id="exam-{{ es.exam.id }}">
+      <div>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <div class="exam-title">{{ es.exam.title }}</div>
+          <span class="tag {{ 'tag-active' if es.exam.is_active else 'tag-inactive' }}">{{ 'ACTIVE' if es.exam.is_active else 'PAUSED' }}</span>
+        </div>
+        <div class="section-tags">
+          <span class="stag stag-mcq {{ '' if es.exam.mcq_enabled else 'stag-off' }}">MCQ</span>
+          <span class="stag stag-coding {{ '' if es.exam.coding_enabled else 'stag-off' }}">CODING</span>
+        </div>
+        <div class="exam-meta">
+          <span>🔑 <span class="key-badge" onclick="copyKey('{{ es.exam.security_key }}')" title="Click to copy">{{ es.exam.security_key }}</span></span>
+          <span>⏱ {{ es.exam.total_time_minutes }}min total</span>
+          <span>👥 {{ es.total_attempts }} attempts · {{ es.submitted }} submitted</span>
+          <span>📅 {{ es.exam.created_at.strftime('%b %d, %Y') }}</span>
+        </div>
+        {% if es.submitted > 0 %}
+        <div style="margin-top:0.6rem;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Avg score: {{ es.avg_score }} / {{ es.max_score }}</div>
+          <div class="score-bar"><div class="score-fill" style="width:{{ (es.avg_score / es.max_score * 100)|int if es.max_score > 0 else 0 }}%"></div></div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="exam-actions">
+        <a href="{{ url_for('exam_results', exam_id=es.exam.id) }}" class="btn btn-secondary btn-sm">Results ({{ es.submitted }})</a>
+        <a href="{{ url_for('edit_exam', exam_id=es.exam.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+        <button onclick="toggleExam({{ es.exam.id }})" class="btn btn-sm {{ 'btn-danger' if es.exam.is_active else 'btn-success' }}" id="toggle-{{ es.exam.id }}">
+          {{ 'Pause' if es.exam.is_active else 'Activate' }}
+        </button>
+        <button onclick="deleteExam({{ es.exam.id }})" class="btn btn-danger btn-sm">Delete</button>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      <h3>No exams yet</h3>
+      <p style="margin:0.5rem 0 1.5rem;">Create your first exam to get started</p>
+      <a href="{{ url_for('create_exam') }}" class="btn btn-primary">Create Exam →</a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function copyKey(key) {
+  navigator.clipboard.writeText(key);
+  alert('Security key copied: ' + key);
+}
+
+async function toggleExam(id) {
+  const res = await fetch(`/exam/${id}/toggle`, {method:'POST'});
+  const data = await res.json();
+  location.reload();
+}
+
+async function deleteExam(id) {
+  if (!confirm('Delete this exam and all its data? This cannot be undone.')) return;
+  const res = await fetch(`/exam/${id}/delete`, {method:'POST'});
+  const data = await res.json();
+  if (data.success) document.getElementById('exam-' + id).remove();
+}
+</script>
+{% endblock %}

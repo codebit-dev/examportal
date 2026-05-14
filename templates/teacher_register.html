@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Register — ExamForge{% endblock %}
+{% block content %}
+<style>
+  .auth-wrap { min-height:calc(100vh - 60px); display:flex; align-items:center; justify-content:center; padding:2rem; }
+  .auth-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2.5rem; width:100%; max-width:420px; }
+  .auth-card h2 { margin-bottom:0.3rem; }
+  .auth-card p { color:var(--text-muted); font-size:0.875rem; margin-bottom:2rem; }
+  .auth-footer { text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--text-muted); }
+</style>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h2>Create Account</h2>
+    <p>Register as a teacher to create exams</p>
+    <form method="POST">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" required placeholder="Dr. Jane Smith">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="you@school.edu">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required placeholder="Min 8 characters">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Create Account →</button>
+    </form>
+    <div class="auth-footer">
+      Already have an account? <a href="{{ url_for('teacher_login') }}">Login here</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

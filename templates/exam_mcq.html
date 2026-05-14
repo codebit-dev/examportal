@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}MCQ — {{ exam.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block head %}
+<style>
+  body { background:var(--bg); }
+  .exam-header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 1.5rem; height:56px; display:flex; align-items:center;
+    justify-content:space-between; position:sticky; top:0; z-index:100;
+  }
+  .exam-title { font-weight:600; font-size:0.95rem; }
+  .exam-meta { font-size:0.8rem; color:var(--text-muted); }
+  .timer {
+    font-family:var(--font-mono); font-size:1.1rem; font-weight:700;
+    padding:0.35rem 1rem; border-radius:8px; background:#003322;
+    color:var(--green); border:1px solid #00e5a040;
+    transition:all 0.3s;
+  }
+  .timer.warning { background:#2a1a00; color:#ffaa44; border-color:#ffaa4440; }
+  .timer.danger { background:#2a0a0a; color:var(--accent2); border-color:#ff658440; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  .exam-layout { display:grid; grid-template-columns:200px 1fr; height:calc(100vh - 56px); }
+  .q-nav {
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:1rem; overflow-y:auto;
+  }
+  .q-nav h4 { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:0.75rem; }
+  .q-nav-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.35rem; }
+  .q-btn {
+    width:100%; aspect-ratio:1; border-radius:6px; border:1px solid var(--border);
+    background:var(--surface2); color:var(--text-muted); cursor:pointer;
+    font-size:0.8rem; font-family:var(--font-mono); transition:all 0.2s;
+  }
+  .q-btn.active { border-color:var(--accent); color:var(--accent); background:#6c63ff18; }
+  .q-btn.answered { background:#003322; border-color:#00e5a040; color:var(--green); }
+  .q-btn.answered.active { background:#004433; border-color:var(--green); }
+  .exam-body { padding:2rem; overflow-y:auto; display:flex; flex-direction:column; }
+  .q-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2rem; max-width:760px; margin:0 auto; width:100%; flex:1; }
+  .q-label { font-size:0.75rem; font-family:var(--font-mono); color:var(--text-muted); margin-bottom:0.5rem; }
+  .q-text { font-size:1.05rem; line-height:1.6; margin-bottom:1.5rem; font-weight:500; }
+  .options { display:flex; flex-direction:column; gap:0.6rem; }
+  .option-label-btn {
+    display:flex; align-items:center; gap:1rem; padding:0.9rem 1.2rem;
+    border-radius:10px; border:1px solid var(--border); background:var(--surface2);
+    cursor:pointer; transition:all 0.2s;
+  }
+  .option-label-btn:hover { border-color:var(--accent); }
+  .option-label-btn.selected { border-color:var(--accent); background:#6c63ff18; }
+  .opt-key {
+    width:28px; height:28px; border-radius:6px; background:var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono); font-size:0.8rem; font-weight:700; flex-shrink:0;
+  }
+  .option-label-btn.selected .opt-key { background:var(--accent); color:#fff; }
+  .q-footer { display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border); }
+  .marks-badge { font-size:0.75rem; font-family:var(--font-mono); color:var(--text-muted); }
+  .submit-bar { margin-top:2rem; max-width:760px; margin-left:auto; margin-right:auto; width:100%; }
+  .submit-bar .progress { height:4px; background:var(--border); border-radius:2px; margin-bottom:0.75rem; overflow:hidden; }
+  .submit-bar .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s; }
+  .submit-bar .stats { font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="exam-header">
+  <div>
+    <div class="exam-title">{{ exam.title }}</div>
+    <div class="exam-meta">Section: MCQ · {{ questions|length }} questions · {{ attempt.candidate_name }}</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:1rem;">
+    <div>
+      <div style="font-size:0.65rem; color:var(--text-muted); text-align:right; margin-bottom:2px;">MCQ SECTION TIME</div>
+      <div class="timer" id="sectionTimer">--:--</div>
+    </div>
+  </div>
+</div>
+
+<div class="exam-layout">
+  <div class="q-nav">
+    <h4>Questions</h4>
+    <div class="q-nav-grid" id="qNavGrid">
+      {% for q in questions %}
+      <button class="q-btn {{ 'active' if loop.first }}" onclick="goTo({{ loop.index0 }})" id="nav-{{ loop.index0 }}">{{ loop.index }}</button>
+      {% endfor %}
+    </div>
+    <div style="margin-top:1.5rem;">
+      <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; color:var(--text-muted); margin-bottom:0.4rem;">
+        <div style="width:14px; height:14px; background:#003322; border:1px solid #00e5a040; border-radius:3px;"></div> Answered
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; color:var(--text-muted);">
+        <div style="width:14px; height:14px; background:var(--surface2); border:1px solid var(--border); border-radius:3px;"></div> Not answered
+      </div>
+    </div>
+  </div>
+
+  <div class="exam-body">
+    {% for q in questions %}
+    {% set outer_loop_index = loop.index0 %}
+    <div class="q-card" id="q-{{ loop.index0 }}" style="{{ 'display:none' if not loop.first }}">
+      <div class="q-label">Question {{ loop.index }} of {{ questions|length }}</div>
+      <div class="q-text">{{ q.text }}</div>
+      <div class="options">
+        {% for opt, letter in [(q.option_a, 'a'), (q.option_b, 'b'), (q.option_c, 'c'), (q.option_d, 'd')] %}
+        <div class="option-label-btn" onclick="selectOption({{ outer_loop_index }}, {{ q.id }}, '{{ letter }}')" id="opt-{{ q.id }}-{{ letter }}">
+          <div class="opt-key">{{ letter|upper }}</div>
+          <span>{{ opt }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="q-footer">
+        <span class="marks-badge">{{ q.marks }} mark{{ 's' if q.marks > 1 }}</span>
+        <div style="display:flex; gap:0.75rem;">
+          {% if not loop.first %}<button onclick="goTo({{ loop.index0 - 1 }})" class="btn btn-secondary btn-sm">← Prev</button>{% endif %}
+          {% if not loop.last %}
+          <button onclick="goTo({{ loop.index0 + 1 }})" class="btn btn-primary btn-sm">Next →</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="submit-bar">
+      <div class="progress"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="stats" id="answerStats">0 of {{ questions|length }} answered</div>
+      <button class="btn btn-primary" onclick="submitMCQ()" style="width:100%; justify-content:center;">Submit MCQ Section →</button>
+      <small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:0.5rem; text-align:center;">⚠️ You cannot return to MCQ after submitting</small>
+    </div>
+  </div>
+</div>
+
+<script>
+const answers = {};
+const totalQuestions = {{ questions|length }};
+let currentQ = 0;
+let submitted = false;
+
+function fmt(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+function setTimer(id, remaining) {
+  const el = document.getElementById(id);
+  el.textContent = fmt(remaining);
+  el.className = 'timer';
+  if (remaining <= 60) el.classList.add('danger');
+  else if (remaining <= 300) el.classList.add('warning');
+}
+
+// Heartbeat with time sync
+async function syncTime() {
+  if (submitted) return; // Don't sync if already submitted
+  
+  try {
+    const response = await fetch('/exam/heartbeat', { method: 'POST' });
+    const data = await response.json();
+    if (data.time_remaining !== null && data.time_remaining !== undefined) {
+      mcqRemaining = data.time_remaining;
+      setTimer('sectionTimer', mcqRemaining);
+      
+      // Auto-submit if time expired
+      if (mcqRemaining <= 0 && !submitted) {
+        console.log('[MCQ] Server sync: Time expired, auto-submitting...');
+        submitted = true;
+        await submitMCQ(true);
+      }
+    }
+  } catch (e) {
+    console.error('Heartbeat failed:', e);
+  }
+}
+
+// Initial time sync and periodic updates
+let mcqRemaining = {{ exam.mcq_time_minutes }} * 60;
+setTimer('sectionTimer', mcqRemaining);
+syncTime(); // Initial sync
+
+// Countdown locally every second
+setInterval(() => {
+  if (!submitted) {
+    if (mcqRemaining > 0) {
+      mcqRemaining--;
+      setTimer('sectionTimer', mcqRemaining);
+    }
+    
+    // Auto-submit immediately when local timer reaches 0
+    if (mcqRemaining === 0 && !submitted) {
+      console.log('[MCQ] Time expired - submitting NOW');
+      submitted = true;
+      
+      // Send submission
+      fetch('{{ url_for("exam_mcq") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...answers, auto_submit: true })
+      }).then(response => response.json())
+        .then(data => {
+          console.log('[MCQ] Submitted successfully');
+          if (data.redirect) {
+            window.location.href = data.redirect;
+          }
+        })
+        .catch(error => {
+          console.error('[MCQ] Submit error:', error);
+          // Force redirect anyway
+          {% if exam.coding_enabled %}
+          window.location.href = '{{ url_for("exam_coding") }}';
+          {% else %}
+          window.location.href = '{{ url_for("exam_done") }}';
+          {% endif %}
+        });
+    }
+  }
+}, 1000);
+
+// Sync with server every 10 seconds
+setInterval(syncTime, 10000);
+
+// Keep session alive every 30 seconds
+setInterval(() => {
+  if (!submitted) {
+    fetch('/exam/heartbeat', { method: 'POST' }).catch(() => {});
+  }
+}, 30000);
+
+function goTo(idx) {
+  document.getElementById('q-' + currentQ).style.display = 'none';
+  document.getElementById('nav-' + currentQ).classList.remove('active');
+  currentQ = idx;
+  document.getElementById('q-' + currentQ).style.display = '';
+  document.getElementById('nav-' + currentQ).classList.add('active');
+}
+
+function selectOption(qIdx, qId, letter) {
+  // Deselect all options for this question
+  ['a','b','c','d'].forEach(l => {
+    const el = document.getElementById('opt-' + qId + '-' + l);
+    if (el) el.classList.remove('selected');
+  });
+  answers[qId] = letter;
+  document.getElementById('opt-' + qId + '-' + letter).classList.add('selected');
+  document.getElementById('nav-' + qIdx).classList.add('answered');
+  updateProgress();
+}
+
+function updateProgress() {
+  const count = Object.keys(answers).length;
+  document.getElementById('answerStats').textContent = count + ' of ' + totalQuestions + ' answered';
+  document.getElementById('progressFill').style.width = (count / totalQuestions * 100) + '%';
+}
+
+async function submitMCQ(auto = false) {
+  if (submitted) {
+    console.log('[MCQ] Already submitted, skipping');
+    return;
+  }
+  
+  if (!auto) {
+    const count = Object.keys(answers).length;
+    const unanswered = totalQuestions - count;
+    if (unanswered > 0) {
+      if (!confirm(`You have ${unanswered} unanswered question(s). Submit anyway? You cannot come back.`)) return;
+    } else {
+      if (!confirm('Submit MCQ section? You cannot return to it.')) return;
+    }
+  }
+  
+  submitted = true;
+  console.log('[MCQ] Submitting...', auto ? '(auto)' : '(manual)');
+  console.log('[MCQ] Answers:', answers);
+  
+  try {
+    const payload = { ...answers, auto_submit: auto };
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    const res = await fetch('{{ url_for("exam_mcq") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('[MCQ] Server response status:', res.status);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Server error ${res.status}: ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log('[MCQ] Submission successful, redirecting to:', data.redirect);
+    
+    if (data.redirect) {
+      // Small delay to ensure logs are visible
+      setTimeout(() => {
+        window.location.href = data.redirect;
+      }, 500);
+    }
+  } catch (error) {
+    console.error('[MCQ] Submission failed:', error);
+    if (error.name === 'AbortError') {
+      console.error('[MCQ] Request timed out after 15 seconds');
+    }
+    submitted = false; // Reset so it can retry
+    throw error;
+  }
+}
+</script>
+{% endblock %}

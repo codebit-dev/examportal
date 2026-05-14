@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+{% block title %}Coding — {{ exam.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block head %}
+<!-- CodeMirror CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<style>
+  .exam-header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 1.5rem; height:56px; display:flex; align-items:center;
+    justify-content:space-between; position:sticky; top:0; z-index:100;
+  }
+  .exam-title { font-weight:600; font-size:0.95rem; }
+  .exam-meta { font-size:0.8rem; color:var(--text-muted); }
+  .timer {
+    font-family:var(--font-mono); font-size:1.1rem; font-weight:700;
+    padding:0.35rem 1rem; border-radius:8px; background:#003322;
+    color:var(--green); border:1px solid #00e5a040; transition:all 0.3s;
+  }
+  .timer.warning { background:#2a1a00; color:#ffaa44; border-color:#ffaa4440; }
+  .timer.danger { background:#2a0a0a; color:var(--accent2); border-color:#ff658440; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  .coding-layout { display:grid; grid-template-columns:220px 1fr; height:calc(100vh - 56px); }
+  .q-nav { background:var(--surface); border-right:1px solid var(--border); padding:1rem; overflow-y:auto; }
+  .q-nav h4 { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:0.75rem; }
+  .q-nav-list { display:flex; flex-direction:column; gap:0.4rem; }
+  .q-nav-item {
+    padding:0.6rem 0.75rem; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface2); cursor:pointer; font-size:0.82rem; transition:all 0.2s;
+  }
+  .q-nav-item.active { border-color:var(--accent); background:#6c63ff18; color:var(--accent); }
+  .q-nav-item.answered { background:#003322; border-color:#00e5a040; color:var(--green); }
+  .coding-body { display:grid; grid-template-columns:1fr 1fr; height:100%; overflow:hidden; }
+  .problem-panel { border-right:1px solid var(--border); padding:1.5rem; overflow-y:auto; }
+  .editor-panel { display:flex; flex-direction:column; }
+  .editor-toolbar {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0.5rem 1rem; display:flex; align-items:center; gap:0.75rem;
+  }
+  .lang-select {
+    padding:0.4rem 0.8rem; border-radius:6px; border:1px solid var(--border);
+    background:var(--surface2); color:var(--text); font-size:0.82rem; cursor:pointer;
+    font-family:var(--font-sans);
+  }
+  .lang-select:focus { outline:none; border-color:var(--accent); }
+  .code-editor-wrapper { flex:1; overflow:hidden; }
+  .CodeMirror {
+    height:100% !important; font-size:0.875rem !important;
+    font-family:var(--font-mono) !important; line-height:1.6 !important;
+    tab-size:4 !important;
+  }
+  .problem-title { font-size:1.05rem; font-weight:600; margin-bottom:0.5rem; }
+  .marks-tag { display:inline-block; padding:0.2rem 0.6rem; background:#1a1a2a; border:1px solid var(--border); border-radius:6px; font-size:0.75rem; font-family:var(--font-mono); color:var(--text-muted); margin-bottom:1rem; }
+  .problem-text { font-size:0.9rem; line-height:1.7; color:var(--text); white-space:pre-wrap; }
+  .expected-box { background:#080810; border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:1rem; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted); }
+  .expected-box label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); display:block; margin-bottom:0.5rem; }
+  .submit-section { padding:0.75rem 1rem; border-top:1px solid var(--border); background:var(--surface); display:flex; gap:1rem; align-items:center; justify-content:flex-end; }
+  .test-panel { border-top:1px solid var(--border); background:var(--surface); max-height:250px; overflow-y:auto; }
+  .test-panel-header { padding:0.75rem 1rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .test-panel-header h4 { font-size:0.85rem; font-weight:600; margin:0; }
+  .test-cases-list { padding:0.75rem 1rem; }
+  .test-case-item { padding:0.75rem; border:1px solid var(--border); border-radius:8px; margin-bottom:0.5rem; background:var(--surface2); }
+  .test-case-item.passed { border-color:#00e5a040; background:#003322; }
+  .test-case-item.failed { border-color:#ff658440; background:#2a0a0a; }
+  .test-case-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
+  .test-case-number { font-size:0.75rem; font-weight:600; font-family:var(--font-mono); }
+  .test-case-status { font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:600; }
+  .test-case-status.passed { background:#00e5a040; color:var(--green); }
+  .test-case-status.failed { background:#ff658440; color:var(--accent2); }
+  .test-case-io { font-size:0.78rem; font-family:var(--font-mono); line-height:1.5; }
+  .test-case-io label { color:var(--text-muted); font-size:0.7rem; text-transform:uppercase; display:block; margin-top:0.4rem; margin-bottom:0.2rem; }
+  .test-case-io div { background:#080810; padding:0.4rem 0.6rem; border-radius:4px; white-space:pre-wrap; word-break:break-word; }
+  .run-btn { padding:0.5rem 1.2rem; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; font-size:0.82rem; transition:all 0.2s; }
+  .run-btn:hover { background:#5b52ee; }
+  .run-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .run-btn.running { background:#666; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="exam-header">
+  <div>
+    <div class="exam-title">{{ exam.title }}</div>
+    <div class="exam-meta">Section: Coding · {{ questions|length }} problem{{ 's' if questions|length > 1 }} · {{ attempt.candidate_name }}</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:1rem;">
+    <div>
+      <div style="font-size:0.65rem; color:var(--text-muted); text-align:right; margin-bottom:2px;">CODING SECTION TIME</div>
+      <div class="timer" id="sectionTimer">--:--</div>
+    </div>
+  </div>
+</div>
+
+<div class="coding-layout">
+  <div class="q-nav">
+    <h4>Problems</h4>
+    <div class="q-nav-list">
+      {% for q in questions %}
+      <div class="q-nav-item {{ 'active' if loop.first }}" onclick="goTo({{ loop.index0 }})" id="nav-{{ loop.index0 }}">
+        Problem {{ loop.index }}<br>
+        <span style="font-size:0.72rem; color:var(--text-muted);">{{ q.marks }} marks · Coding </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:auto; padding-top:1rem;">
+      <button onclick="submitCoding()" class="btn btn-primary" style="width:100%; justify-content:center; font-size:0.8rem;">Submit →</button>
+      <small style="font-size:0.72rem; color:var(--text-muted); display:block; margin-top:0.4rem; text-align:center;">Auto-graded based on test cases</small>
+    </div>
+  </div>
+
+  {% for q in questions %}
+  <div id="q-panel-{{ loop.index0 }}" style="{{ 'display:none;' if not loop.first }} display:grid; grid-template-columns:1fr 1fr; height:100%; overflow:hidden;">
+    <div class="problem-panel">
+      <div class="problem-title">Problem {{ loop.index }}</div>
+      <span class="marks-tag">{{ q.marks }} marks · Coding</span>
+      <div class="problem-text">{{ q.text }}</div>
+      {% if q.expected_output %}
+      <div class="expected-box">
+        <label>Expected Output / Test Cases</label>
+        {{ q.expected_output }}
+      </div>
+      {% endif %}
+    </div>
+    <div class="editor-panel">
+      <div class="editor-toolbar">
+        <select class="lang-select" id="lang-{{ q.id }}" onchange="changeLanguage({{ q.id }})">
+          <option value="python" {{ 'selected' if q.language_hint == 'python' else '' }}>Python 3</option>
+          <option value="java" {{ 'selected' if q.language_hint == 'java' else '' }}>Java</option>
+          <option value="cpp" {{ 'selected' if q.language_hint == 'cpp' else '' }}>C++</option>
+          <option value="c" {{ 'selected' if q.language_hint == 'c' else '' }}>C</option>
+          <option value="javascript" {{ 'selected' if q.language_hint == 'javascript' else '' }}>JavaScript</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">Write your solution</span>
+        <button class="run-btn" onclick="runCode({{ q.id }})" id="run-btn-{{ q.id }}">
+          ▶ Run Code
+        </button>
+      </div>
+      <div class="code-editor-wrapper">
+        <textarea class="code-editor" id="code-{{ q.id }}">{{ q.starter_code if q.starter_code else '' }}</textarea>
+      </div>
+      <div class="test-panel" id="test-panel-{{ q.id }}" style="display:none;">
+        <div class="test-panel-header">
+          <h4>Test Results</h4>
+          <span id="test-score-{{ q.id }}" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--text-muted);"></span>
+        </div>
+        <div class="test-cases-list" id="test-results-{{ q.id }}">
+          <!-- Test results will be inserted here -->
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script>
+let currentQ = 0;
+let submitted = false;
+const editors = {};
+
+// Initialize CodeMirror editors
+{% for q in questions %}
+editors[{{ q.id }}] = CodeMirror.fromTextArea(document.getElementById('code-{{ q.id }}'), {
+  mode: 'python',
+  theme: 'dracula',
+  lineNumbers: true,
+  tabSize: 4,
+  indentWithTabs: false,
+  lineWrapping: true,
+  autoCloseBrackets: true,
+  matchBrackets: true,
+  indentUnit: 4
+});
+editors[{{ q.id }}].on('change', () => {
+  if (editors[{{ q.id }}].getValue().trim()) {
+    document.getElementById('nav-' + getCurrentIndex({{ q.id }}))?.classList.add('answered');
+  }
+});
+{% endfor %}
+
+function getCurrentIndex(qId) {
+  const qIds = [{% for q in questions %}{{ q.id }},{% endfor %}];
+  return qIds.indexOf(qId);
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+function setTimer(id, remaining) {
+  const el = document.getElementById(id);
+  el.textContent = fmt(remaining);
+  el.className = 'timer';
+  if (remaining <= 60) el.classList.add('danger');
+  else if (remaining <= 300) el.classList.add('warning');
+}
+
+// Heartbeat with time sync
+async function syncTime() {
+  if (submitted) return; // Don't sync if already submitted
+  
+  try {
+    const response = await fetch('/exam/heartbeat', { method: 'POST' });
+    const data = await response.json();
+    if (data.time_remaining !== null && data.time_remaining !== undefined) {
+      codingRemaining = data.time_remaining;
+      setTimer('sectionTimer', codingRemaining);
+      
+      // Auto-submit if time expired
+      if (codingRemaining <= 0 && !submitted) {
+        console.log('[CODING] Server sync: Time expired, auto-submitting...');
+        submitted = true;
+        await submitCoding(true);
+      }
+    }
+  } catch (e) {
+    console.error('Heartbeat failed:', e);
+  }
+}
+
+// Initial time sync and periodic updates
+let codingRemaining = {{ exam.coding_time_minutes }} * 60;
+setTimer('sectionTimer', codingRemaining);
+syncTime(); // Initial sync
+
+// Countdown locally every second
+setInterval(() => {
+  if (!submitted) {
+    if (codingRemaining > 0) {
+      codingRemaining--;
+      setTimer('sectionTimer', codingRemaining);
+    }
+    
+    // Auto-submit immediately when local timer reaches 0
+    if (codingRemaining === 0 && !submitted) {
+      console.log('[CODING] Time expired - submitting NOW');
+      submitted = true;
+      
+      // Collect all code
+      const data = { auto_submit: true };
+      {% for q in questions %}
+      data['{{ q.id }}'] = editors[{{ q.id }}].getValue();
+      {% endfor %}
+      
+      // Send submission
+      fetch('{{ url_for("exam_coding") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(response => response.json())
+        .then(resp => {
+          console.log('[CODING] Submitted successfully');
+          if (resp.redirect) {
+            window.location.href = resp.redirect;
+          }
+        })
+        .catch(error => {
+          console.error('[CODING] Submit error:', error);
+          // Force redirect anyway
+          window.location.href = '{{ url_for("exam_done") }}';
+        });
+    }
+  }
+}, 1000);
+
+// Sync with server every 10 seconds
+setInterval(syncTime, 10000);
+
+// Keep session alive every 30 seconds
+setInterval(() => {
+  if (!submitted) {
+    fetch('/exam/heartbeat', { method: 'POST' }).catch(() => {});
+  }
+}, 30000);
+
+function changeLanguage(qId) {
+  const lang = document.getElementById('lang-' + qId).value;
+  const editor = editors[qId];
+  
+  // Update mode based on language
+  if (lang === 'python') {
+    editor.setOption('mode', 'python');
+  } else if (lang === 'javascript') {
+    editor.setOption('mode', 'javascript');
+  } else if (lang === 'java' || lang === 'cpp' || lang === 'c') {
+    editor.setOption('mode', 'text/x-c++src');
+  }
+  
+  editor.refresh();
+  editor.focus();
+}
+
+function goTo(idx) {
+  document.getElementById('q-panel-' + currentQ).style.display = 'none';
+  document.getElementById('nav-' + currentQ).classList.remove('active');
+  currentQ = idx;
+  document.getElementById('q-panel-' + currentQ).style.display = 'grid';
+  document.getElementById('nav-' + currentQ).classList.add('active');
+  // Refresh editor
+  const qId = getQId(idx);
+  if (editors[qId]) {
+    setTimeout(() => editors[qId].refresh(), 10);
+  }
+}
+
+function getQId(idx) {
+  const qIds = [{% for q in questions %}{{ q.id }},{% endfor %}];
+  return qIds[idx];
+}
+
+async function runCode(questionId) {
+  const code = editors[questionId].getValue();
+  const language = document.getElementById('lang-' + questionId).value;
+  
+  if (!code.trim()) {
+    alert('Please write some code first');
+    return;
+  }
+
+  const runBtn = document.getElementById('run-btn-' + questionId);
+  const testPanel = document.getElementById('test-panel-' + questionId);
+  const testResults = document.getElementById('test-results-' + questionId);
+  const testScore = document.getElementById('test-score-' + questionId);
+
+  // Disable button and show loading
+  runBtn.disabled = true;
+  runBtn.classList.add('running');
+  runBtn.textContent = '⏳ Running...';
+  testPanel.style.display = 'block';
+  testResults.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted);">Running test cases...</div>';
+
+  try {
+    const response = await fetch('/exam/run-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: questionId,
+        code: code,
+        language: language
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      testResults.innerHTML = '<div style="padding:1rem; color:var(--accent2);">Error: ' + data.error + '</div>';
+      return;
+    }
+
+    // Display results - only show first test case details, rest hidden
+    testScore.textContent = data.passed + '/' + data.total + ' passed (' + Math.round(data.score_percentage) + '%)';
+    
+    let html = '';
+    data.results.forEach((result, index) => {
+      const statusClass = result.passed ? 'passed' : 'failed';
+      const statusText = result.passed ? '✓ PASSED' : '✗ FAILED';
+      
+      // Only show details for first test case (public), hide rest
+      if (index === 0) {
+        html += '<div class="test-case-item ' + statusClass + '">';
+        html += '<div class="test-case-header">';
+        html += '<span class="test-case-number">Sample Test Case</span>';
+        html += '<span class="test-case-status ' + statusClass + '">' + statusText + '</span>';
+        html += '</div>';
+        html += '<div class="test-case-io">';
+        html += '<label>Input</label><div>' + escapeHtml(result.input) + '</div>';
+        html += '<label>Expected Output</label><div>' + escapeHtml(result.expected_output) + '</div>';
+        
+        if (result.error) {
+          html += '<label>Error</label><div style="color:var(--accent2);">' + escapeHtml(result.error) + '</div>';
+        } else {
+          html += '<label>Your Output</label><div>' + escapeHtml(result.actual_output || '(empty)') + '</div>';
+        }
+        
+        html += '</div></div>';
+      } else {
+        // Hidden test cases - only show pass/fail
+        html += '<div class="test-case-item ' + statusClass + '">';
+        html += '<div class="test-case-header">';
+        html += '<span class="test-case-number">Hidden Test Case ' + result.test_case_number + '</span>';
+        html += '<span class="test-case-status ' + statusClass + '">' + statusText + '</span>';
+        html += '</div>';
+        html += '<small style="color:var(--text-muted); font-size:0.7rem;">Details hidden</small>';
+        html += '</div>';
+      }
+    });
+
+    testResults.innerHTML = html;
+
+  } catch (error) {
+    testResults.innerHTML = '<div style="padding:1rem; color:var(--accent2);">Failed to run code: ' + error.message + '</div>';
+  } finally {
+    runBtn.disabled = false;
+    runBtn.classList.remove('running');
+    runBtn.textContent = '▶ Run Code';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function submitCoding(auto = false) {
+  if (submitted) {
+    console.log('[CODING] Already submitted, skipping');
+    return;
+  }
+  
+  if (!auto) {
+    if (!confirm('Submit your coding solutions? This ends the exam.')) return;
+  }
+  
+  submitted = true;
+  console.log('[CODING] Submitting...', auto ? '(auto)' : '(manual)');
+
+  const data = { auto_submit: auto };
+  {% for q in questions %}
+  data['{{ q.id }}'] = editors[{{ q.id }}].getValue();
+  {% endfor %}
+
+  console.log('[CODING] Submitting answers for questions:', Object.keys(data).filter(k => k !== 'auto_submit'));
+
+  try {
+    // Update overlay to show grading
+    const overlay = document.getElementById('autosubmit-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<div style="text-align:center;"><div style="font-size:3rem;margin-bottom:1rem;">⚙️</div><div>Auto-grading your solutions...</div><div style="font-size:1rem;margin-top:0.5rem;color:#aaa;">This may take a few seconds</div></div>';
+    }
+
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for coding (needs grading time)
+    
+    const res = await fetch('{{ url_for("exam_coding") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log('[CODING] Server response status:', res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Server error ${res.status}: ${errorText}`);
+    }
+
+    const resp = await res.json();
+    
+    // Check if there's an error
+    if (resp.error) {
+      throw new Error(resp.error);
+    }
+    
+    console.log('[CODING] Submission successful, redirecting to:', resp.redirect);
+
+    if (resp.redirect) {
+      // Update overlay
+      if (overlay) {
+        overlay.innerHTML = '<div style="text-align:center;"><div style="font-size:3rem;margin-bottom:1rem;">✅</div><div>Submission complete!</div></div>';
+      }
+      
+      // Small delay to ensure logs are visible
+      setTimeout(() => {
+        window.location.href = resp.redirect;
+      }, 1000);
+    }
+  } catch (error) {
+    console.error('[CODING] Submission failed:', error);
+    if (error.name === 'AbortError') {
+      console.error('[CODING] Request timed out after 60 seconds');
+      const overlay = document.getElementById('autosubmit-overlay');
+      if (overlay) {
+        overlay.innerHTML = '<div style="text-align:center;"><div style="font-size:3rem;margin-bottom:1rem;">⏱️</div><div>Submission timed out</div><div style="font-size:1rem;margin-top:0.5rem;color:#aaa;">Please refresh the page</div></div>';
+      }
+    } else {
+      const overlay = document.getElementById('autosubmit-overlay');
+      if (overlay) {
+        overlay.innerHTML = '<div style="text-align:center;"><div style="font-size:3rem;margin-bottom:1rem;">❌</div><div>Submission failed</div><div style="font-size:1rem;margin-top:0.5rem;color:#aaa;">' + error.message + '</div></div>';
+      }
+    }
+    submitted = false; // Reset so it can retry
+    throw error;
+  }
+}
+</script>
+{% endblock %}

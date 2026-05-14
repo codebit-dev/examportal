@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Join Exam — ExamForge{% endblock %}
+{% block content %}
+<style>
+  .join-wrap { min-height:calc(100vh - 60px); display:flex; align-items:center; justify-content:center; padding:2rem; }
+  .join-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2.5rem; width:100%; max-width:460px; }
+  .join-card h2 { margin-bottom:0.3rem; }
+  .join-card p { color:var(--text-muted); font-size:0.875rem; margin-bottom:2rem; }
+  .key-input { font-family:var(--font-mono); font-size:1.4rem; letter-spacing:0.2em; text-align:center; font-weight:700; text-transform:uppercase; }
+  .info-box { background:#1a1a2a; border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:1.5rem; }
+  .info-box p { font-size:0.8rem; color:var(--text-muted); margin-bottom:0; line-height:1.6; }
+  .instructions { background:#0f1419; border:1px solid var(--border); border-radius:8px; padding:1.5rem; margin-top:1.5rem; }
+  .instructions h3 { font-size:0.9rem; margin:0 0 1rem; color:var(--accent); }
+  .instructions ul { margin:0; padding-left:1.2rem; }
+  .instructions li { font-size:0.82rem; color:var(--text-muted); line-height:1.8; margin-bottom:0.3rem; }
+  .instructions li strong { color:var(--text); }
+</style>
+<div class="join-wrap">
+  <div class="join-card">
+    <h2>Join Exam</h2>
+    <p>Enter the security key given by your teacher</p>
+    <form method="POST">
+      <div class="form-group">
+        <label>Security Key</label>
+        <input type="text" name="security_key" class="key-input" required maxlength="8"
+               placeholder="XXXXXXXX" value="{{ prefill_key }}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" required placeholder="Your full name">
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email" required placeholder="you@email.com">
+        <small style="color:var(--text-muted); font-size:0.75rem; margin-top:0.3rem; display:block;">Results will be sent to this email</small>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:0.5rem;">Start Exam →</button>
+    </form>
+    <div class="info-box">
+      <p>⚠️ Once you begin, the exam timer starts immediately. Do not close or refresh the browser. Results are sent to your email after submission — they will not be shown on screen.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
