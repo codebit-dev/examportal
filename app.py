@@ -7,6 +7,7 @@ from datetime import timezone
 import json
 import secrets
 import os
+import requests
 import threading
 from code_executor import CodeExecutor
 
@@ -159,7 +160,32 @@ def send_result_email(attempt_id):
             msg.html = render_template('email_result.html', attempt=attempt, exam=exam)
             
             print(f"[EMAIL] Sending via SMTP...")
-            mail.send(msg)
+            response = requests.post(
+    "https://api.brevo.com/v3/smtp/email",
+    headers={
+        "accept": "application/json",
+        "api-key": os.getenv("BREVO_API_KEY"),
+        "content-type": "application/json"
+    },
+    json={
+        "sender": {
+            "name": "Examforge",
+            "email": "yourverifiedemail@gmail.com"
+        },
+        "to": [
+            {
+                "email": attempt.candidate_email
+            }
+        ],
+        "subject": f"Your Results: {exam.title}",
+        "htmlContent": msg.html
+    }
+)
+
+print(response.text)
+
+if response.status_code not in [200, 201]:
+    raise Exception(response.text)
             
             attempt.email_sent = True
             db.session.commit()
