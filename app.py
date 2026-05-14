@@ -151,7 +151,7 @@ def send_result_email(attempt_id):
                 json={
                     "sender": {
                         "name": "Examforge",
-                        "email": "ab5009001@smtp-brevo.com"
+                        "email": "devdeepcoc2005@gmail.com"
                     },
                     "to": [
                         {
