@@ -664,7 +664,7 @@ def exam_mcq():
             attempt.total_score = attempt.mcq_score
             attempt.max_score = get_max_score(exam)
             db.session.commit()
-            threading.Thread(target=send_result_email, args=(attempt.id,), daemon=True).start()
+            send_result_email(attempt.id)
             return jsonify({'redirect': url_for('exam_done')})
 
     return render_template('exam_mcq.html', exam=exam, questions=questions, attempt=attempt)
@@ -702,7 +702,7 @@ def auto_submit_mcq(attempt, exam):
         attempt.total_score = 0
         attempt.max_score = get_max_score(exam)
         db.session.commit()
-        threading.Thread(target=send_result_email, args=(attempt.id,), daemon=True).start()
+        send_result_email(attempt.id)
         return redirect(url_for('exam_done'))
 
 @app.route('/exam/coding', methods=['GET', 'POST'])
@@ -783,7 +783,7 @@ def exam_coding():
             
             print(f"[EXAM] Final score: {attempt.total_score}/{attempt.max_score}")
             
-            threading.Thread(target=send_result_email, args=(attempt.id,), daemon=True).start()
+            send_result_email(attempt.id)
             session.pop('attempt_id', None)
             session.pop('exam_id', None)
             session.pop('exam_start', None)
@@ -836,7 +836,7 @@ def auto_submit_coding(attempt, exam, data):
     
     print(f"[EXAM] Final score (auto-submit): {attempt.total_score}/{attempt.max_score}")
     
-    threading.Thread(target=send_result_email, args=(attempt.id,), daemon=True).start()
+    send_result_email(attempt.id)
     session.pop('attempt_id', None)
     session.pop('exam_id', None)
     session.pop('exam_start', None)
