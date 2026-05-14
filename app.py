@@ -121,80 +121,63 @@ class Answer(db.Model):
     question = db.relationship('Question')
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────
-
 def send_result_email(attempt_id):
-    """Send exam results via email"""
+    """Send exam results via Brevo API"""
     try:
         with app.app_context():
             attempt = Attempt.query.get(attempt_id)
+
             if not attempt or attempt.email_sent:
-                print(f"[EMAIL] Not sent: attempt={attempt_id}, email_sent={attempt.email_sent if attempt else 'N/A'}")
+                print(f"[EMAIL] Not sent: attempt={attempt_id}")
                 return
-            
-            # Check if email is configured
-            mail_username = app.config.get('MAIL_USERNAME', '')
-            mail_password = app.config.get('MAIL_PASSWORD', '')
-            
-            print(f"[EMAIL] Configuration check:")
-            print(f"  MAIL_SERVER: {app.config.get('MAIL_SERVER')}")
-            print(f"  MAIL_PORT: {app.config.get('MAIL_PORT')}")
-            print(f"  MAIL_USE_TLS: {app.config.get('MAIL_USE_TLS')}")
-            print(f"  MAIL_USERNAME: {mail_username}")
-            print(f"  MAIL_PASSWORD: {'***' if mail_password else '(empty)'}")
-            
-            if not mail_username or mail_username == '':
-                print("[EMAIL] ERROR: MAIL_USERNAME is empty - email will not be sent")
-                return
-            
-            if not mail_password or mail_password == '':
-                print("[EMAIL] ERROR: MAIL_PASSWORD is empty - email will not be sent")
-                return
-            
+
             exam = Exam.query.get(attempt.exam_id)
-            print(f"[EMAIL] Attempting to send email to {attempt.candidate_email} for exam: {exam.title}")
-            
-            msg = Message(
-                subject=f"Your Results: {exam.title}",
-                recipients=[attempt.candidate_email]
+
+            print(f"[EMAIL] Sending email to {attempt.candidate_email}")
+
+            html_content = render_template(
+                'email_result.html',
+                attempt=attempt,
+                exam=exam
             )
-            msg.html = render_template('email_result.html', attempt=attempt, exam=exam)
-            
-            print(f"[EMAIL] Sending via SMTP...")
+
             response = requests.post(
-    "https://api.brevo.com/v3/smtp/email",
-    headers={
-        "accept": "application/json",
-        "api-key": os.getenv("BREVO_API_KEY"),
-        "content-type": "application/json"
-    },
-    json={
-        "sender": {
-            "name": "Examforge",
-            "email": "yourverifiedemail@gmail.com"
-        },
-        "to": [
-            {
-                "email": attempt.candidate_email
-            }
-        ],
-        "subject": f"Your Results: {exam.title}",
-        "htmlContent": msg.html
-    }
-)
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "accept": "application/json",
+                    "api-key": os.getenv("BREVO_API_KEY"),
+                    "content-type": "application/json"
+                },
+                json={
+                    "sender": {
+                        "name": "Examforge",
+                        "email": "ab5009001@smtp-brevo.com"
+                    },
+                    "to": [
+                        {
+                            "email": attempt.candidate_email
+                        }
+                    ],
+                    "subject": f"Your Results: {exam.title}",
+                    "htmlContent": html_content
+                }
+            )
 
-print(response.text)
+            print("[EMAIL] Response:", response.text)
 
-if response.status_code not in [200, 201]:
-    raise Exception(response.text)
-            
+            if response.status_code not in [200, 201]:
+                raise Exception(response.text)
+
             attempt.email_sent = True
             db.session.commit()
-            print(f"[EMAIL] ✓ Email sent successfully to {attempt.candidate_email}")
+
+            print(f"[EMAIL] ✓ Email sent successfully")
+
     except Exception as e:
         print(f"[EMAIL] ✗ Error: {e}")
+
         import traceback
         traceback.print_exc()
-
 def calculate_mcq_score(attempt):
     score = 0
     for answer in attempt.answers:
